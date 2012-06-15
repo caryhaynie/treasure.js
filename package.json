@@ -1,0 +1,28 @@
+{
+  "name": "treasure.js",
+  "version": "0.1.0",
+  "description": "configurable data management for node.js",
+  "author": "Cary Haynie <cary.haynie@gmail.com>",
+  "license": "MIT",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/caryhaynie/treasure.js.git"
+  },
+  "scripts":
+  {
+    "test": "./node_modules/.bin/mocha -R spec test/test_treasure.js"
+  },
+  "dependencies":
+  {
+  },
+  "devDependencies":
+  {
+    "expect.js": "latest",
+    "mocha": "latest"
+  },
+  "engine":
+  {
+    "node": ">=0.6"
+  }
+}
