@@ -1,5 +1,4 @@
 var fs = require("fs");
-var path = require("path");
 
 var expect = require("expect.js");
 
@@ -50,8 +49,8 @@ describe("data store", function() {
           testCount--;
           if (testCount == 0) done();
         }
-        path.exists("./test/data/real_object.json", testDone.bind(null, true));
-        path.exists("./test/data/fake_object.json", testDone.bind(null, false));
+        fs.exists("./test/data/real_object.json", testDone.bind(null, true));
+        fs.exists("./test/data/fake_object.json", testDone.bind(null, false));
       });
       it("should return an object for id that exists", function(done) {
         obj.readObject("real_object", function(err, res) {
@@ -81,7 +80,7 @@ describe("data store", function() {
         obj.writeObject(o, function(err, res) {
           expect(err).to.not.be.ok();
           expect(res).to.be.ok();
-          path.exists("./test/data/write_test.json", function(exists) {
+          fs.exists("./test/data/write_test.json", function(exists) {
             expect(exists).to.be.ok();
             done();
           });

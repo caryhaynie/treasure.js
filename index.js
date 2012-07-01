@@ -4,7 +4,7 @@ var path = require("path");
 var util = require("util");
 
 var _mkdirs = function(pth, cb) {
-  path.exists(pth, function(exists) {
+  fs.exists(pth, function(exists) {
     if (!exists) {
       var dir = path.dirname(pth);
       // if we hit root, give up.
@@ -28,7 +28,7 @@ function DiskStore(path) {
   });
 }
 
-DiskStore.prototype = Object.create(events.EventEmitter, { constructor: DiskStore });
+DiskStore.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: DiskStore } });
 
 Object.defineProperty(DiskStore.prototype, "_fpath", { enumerable: false, value: function(id) {
   return path.join(this.path, util.format("%s.json", id)); }
@@ -37,7 +37,7 @@ Object.defineProperty(DiskStore.prototype, "_fpath", { enumerable: false, value:
 Object.defineProperty(DiskStore.prototype, "_mkdirs", { enumerable: false, value: _mkdirs });
 
 DiskStore.prototype.hasObject = function(id, cb) {
-  path.exists(this._fpath(id), function (exists) { cb(null, exists); });
+  fs.exists(this._fpath(id), function (exists) { cb(null, exists); });
 };
 
 DiskStore.prototype.readObject = function(id, cb) {
@@ -61,7 +61,7 @@ function MemoryStore() {
   Object.defineProperty(this, "_store", { enumerable: false, value: {} });
 }
 
-MemoryStore.prototype = Object.create(events.EventEmitter, { constructor: MemoryStore });
+MemoryStore.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: MemoryStore } });
 
 MemoryStore.prototype.hasObject = function(id, cb) {
   cb(null, this._store.hasOwnProperty(id) == true);
