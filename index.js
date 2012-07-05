@@ -3,7 +3,31 @@ var fs = require("fs");
 var path = require("path");
 var util = require("util");
 
+var Future = function() {
+    this.completed = false;
+    this.error = null;
+    this.result = null;
+};
+
+Future.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: Future } });
+
+Future.prototype.complete = function(err, res) {
+    this.completed = true;
+    if (err != null) {
+        this.error = err;
+        this.emit("onError", this.err);
+    } else {
+        this.result = res;
+        this.emit("onResult", this.result);
+    }
+    this.emit("onComplete", this.err, this.result);
+}
+
 var _mkdirs = function(pth, cb) {
+  var f = new Future();
+  if (cb) {
+      f.on("onComplete", cb);
+  }
   fs.exists(pth, function(exists) {
     if (!exists) {
       var dir = path.dirname(pth);
@@ -11,14 +35,15 @@ var _mkdirs = function(pth, cb) {
       if (dir == pth) { cb("hit root and it doesn't exist?!?!", null); return; }
       _mkdirs(dir, function(err, res) {
         fs.mkdir(pth, 0755, function(mkErr) {
-          if (mkErr) { cb(mkErr, null); return; }
-          cb(err, res);
+          if (mkErr) { f.complete(mkErr, null); return; }
+          f.complete(err, res);
         });
       });
     } else {
-      cb(null, "done");
+      f.complete(null, "done");
     }
   });
+  return f;
 }
 
 function DiskStore(path) {
@@ -31,8 +56,16 @@ function DiskStore(path) {
 DiskStore.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: DiskStore } });
 
 Object.defineProperty(DiskStore.prototype, "_fpath", { enumerable: false, value: function(id) {
-  return path.join(this.path, util.format("%s.json", id)); }
-});
+  // namespace check
+  if (id.indexOf("::") != -1) {
+    var ns = id.split("::");
+    ns.unshift(this.path);
+    ns.push(util.format("%s.json", ns.pop()));
+    return path.join.apply(null, ns);
+  } else {
+    return path.join(this.path, util.format("%s.json", id));
+  }
+}});
 
 Object.defineProperty(DiskStore.prototype, "_mkdirs", { enumerable: false, value: _mkdirs });
 
@@ -50,11 +83,24 @@ DiskStore.prototype.readObject = function(id, cb) {
 };
 
 DiskStore.prototype.writeObject = function(obj, cb) {
+  var self = this;
   if (!obj.hasOwnProperty("_id")) { cb("missing _id field", null); return; }
-  fs.writeFile(this._fpath(obj._id), function (err) {
-    if (err) { cb(err, null); return; }
+  // make sure directory exists ( we lazily create namespace directories here ).
+  fs.exists(path.dirname(this._fpath(obj._id)), function (exists) {
+    if (exists) {
+      fs.writeFile(self._fpath(obj._id), obj, function (err) {
+        if (err) { cb(err, null); return; }
+      });
+      cb(null, "success");
+    } else {
+      var f = self._mkdirs(path.dirname(self._fpath(obj._id)));
+      f.on("onResult", function(res) {
+        fs.writeFile(self._fpath(obj._id), obj, function(err) {
+          if (err) { cb(err, null); return; }
+        });
+      });
+    }
   });
-  cb(null, "success");
 };
 
 function MemoryStore() {

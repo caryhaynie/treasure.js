@@ -86,6 +86,18 @@ describe("data store", function() {
           });
         });
       });
+      it("should write a namespaced object to disk in the correct location", function(done) {
+          var ns = { foo: "bar" };
+          Object.defineProperty(ns, "_id", { enumerable: false, value:"ns1::ns_test" });
+          obj.writeObject(ns, function(err, res) {
+              expect(err).to.not.be.ok();
+              expect(res).to.be.ok();
+              fs.exists("./test/data/ns1/ns_test.json", function(exists) {
+                  expect(exists).to.be.ok();
+                  done();
+              });
+          });
+      });
       it("should fail to write an object without an id", function(done) {
         var o = { foobar: "This is a test" };
         obj.writeObject(o, function(err, res) {
