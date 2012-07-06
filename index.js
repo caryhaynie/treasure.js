@@ -3,48 +3,64 @@ var fs = require("fs");
 var path = require("path");
 var util = require("util");
 
-var Future = function() {
-    this.completed = false;
-    this.error = null;
-    this.result = null;
+var mkdirp = require("mkdirp");
+
+var flow = require("flow.js");
+
+// internal list of registered store types.
+var storeMap = {};
+
+var createStore = function() {
+    var args = Array.prototype.slice(arguments);
+    if (args.length < 2) { throw new Error("Missing arguments"); }
+    var name = args.shift();
+    var type = storeMap[name];
+    if (type == undefined) { throw new Error("Unrecognized data store type"); }
+    args.unshift(type);
+    var store = Object.create(StoreInterface.prototype);
+    StoreInterface.prototype.constructor.apply(store, args);
 };
 
-Future.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: Future } });
+var getRegisteredStores = function() {
+    return Object.keys(storeMap);
+};
 
-Future.prototype.complete = function(err, res) {
-    this.completed = true;
-    if (err != null) {
-        this.error = err;
-        this.emit("onError", this.err);
-    } else {
-        this.result = res;
-        this.emit("onResult", this.result);
-    }
-    this.emit("onComplete", this.err, this.result);
-}
+var registerStore = function(name, impl) {
+    storeMap[name] = impl;
+};
 
-var _mkdirs = function(pth, cb) {
-  var f = new Future();
-  if (cb) {
-      f.on("onComplete", cb);
-  }
-  fs.exists(pth, function(exists) {
-    if (!exists) {
-      var dir = path.dirname(pth);
-      // if we hit root, give up.
-      if (dir == pth) { cb("hit root and it doesn't exist?!?!", null); return; }
-      _mkdirs(dir, function(err, res) {
-        fs.mkdir(pth, 0755, function(mkErr) {
-          if (mkErr) { f.complete(mkErr, null); return; }
-          f.complete(err, res);
-        });
-      });
-    } else {
-      f.complete(null, "done");
-    }
-  });
-  return f;
-}
+var unregisterStore = function(name) { 
+    storeMap[name] = undefined;
+};
+
+// StoreInterface wrapper functions
+
+var _iHasObject = function(id, cb) {
+    this.impl.hasObject(id, cb);
+};
+
+var _iReadObject = function(id, cb) {
+    this.impl.readObject(id, cb);
+};
+
+var _iWriteObject = function(obj, cb) {
+    this.impl.writeObject(obj, cb);
+};
+
+function StoreInterface() {
+    var args = Array.prototype.slice(arguments);
+    var implType = args.shift();
+    this.impl = Object.create(implType.prototype);
+    implType.prototype.constructor.apply(this.impl, args);
+
+    this.hasObject = flow.wrap(_iHasObject, this);
+    this.readObject = flow.wrap(_iReadObject, this);
+    this.writeObject = flow.wrap(_iWriteObject, this);
+};
+
+StoreInterface.prototype = Object.create(events.EventEmitter.prototype, { constructor: { value: StoreInterface } });
+
+
 
 function DiskStore(path) {
   this.path = path;
@@ -67,7 +83,7 @@ Object.defineProperty(DiskStore.prototype, "_fpath", { enumerable: false, value:
   }
 }});
 
-Object.defineProperty(DiskStore.prototype, "_mkdirs", { enumerable: false, value: _mkdirs });
+Object.defineProperty(DiskStore.prototype, "_mkdirs", { enumerable: false, value: flow.wrap(mkdirp) });
 
 DiskStore.prototype.hasObject = function(id, cb) {
   fs.exists(this._fpath(id), function (exists) { cb(null, exists); });
@@ -94,9 +110,11 @@ DiskStore.prototype.writeObject = function(obj, cb) {
       cb(null, "success");
     } else {
       var f = self._mkdirs(path.dirname(self._fpath(obj._id)));
-      f.on("onResult", function(res) {
+      f.on("complete", function(err,res) {
+        if (err) { cb(err, null); return; }
         fs.writeFile(self._fpath(obj._id), obj, function(err) {
           if (err) { cb(err, null); return; }
+          cb(null, "success");
         });
       });
     }
@@ -128,6 +146,7 @@ MemoryStore.prototype.writeObject = function(obj, cb) {
   cb(null, "success");
 };
 
-exports.DiskStore = DiskStore;
-exports.MemoryStore = MemoryStore;
-
+exports.createStore = createStore;
+exports.getRegisteredStores = getRegisteredStores;
+exports.registerStore = registerStore;
+exports.unregisterStore = unregisterStore;
