@@ -6,7 +6,20 @@ var expect = require("expect.js");
 var treasure = require("../");
 
 var storeArgs = {
+  "DiskStore": ["./test/data"],
+  "MemoryStore": []
 };
+
+var cleanupActions = {
+  "DiskStore": function(obj, done) {
+    fs.unlink("./test/data/write_test.json", function(err) {
+      expect(err).to.not.be.ok();
+      done();
+    });
+  }
+};
+
+function DummyStore() {};
 
 describe("treasure.js", function() {
   describe("Data Store functions", function() {
@@ -14,15 +27,23 @@ describe("treasure.js", function() {
       it("should export a createStore() function", function() {
         expect(treasure.createStore).to.be.a("function");
       });
-      it("should require a name parameter and a type parameter", function() {
-        expect(function() { treasure.createStore(); }).to.throwException(/Missing arguments/);
-        expect(function() { treasure.createStore("DummyStore"); }).to.throwException(/Missing arguments/);
-        expect(function() { treasure.createStore("DummyStore", DummyStore); }).to.not.throwException(/Missing arguments/);
+      it("should require a name parameter", function() {
+        expect(function() { treasure.createStore(); }).to.throwException(/Missing argument/);
+        expect(function() { treasure.createStore("DummyStore"); }).to.not.throwException(/Missing argument/);
+      });
+      it("should require a name that's been previously registered", function() {
+        expect(function() { treasure.createStore("DummyStore"); }).to.throwException(/Unrecognized data store type/);
+        treasure.registerStore("DummyStore", DummyStore);
+        expect(function() { treasure.createStore("DummyStore"); }).to.not.throwException();
+        treasure.unregisterStore("DummyStore");
       });
     });
     describe("getRegisteredStores()", function() {
       it("should export a getRegisteredStores() function", function() {
         expect(treasure.getRegisteredStores).to.be.a("function");
+      });
+      it("should return a list of the currently registered stores", function() {
+        expect(treasure.getRegisteredStores()).to.be.an("array");
       });
     });
     describe("registerStore()", function() {
@@ -36,7 +57,7 @@ describe("treasure.js", function() {
       });
     });
   });
-  treasure.getRegisteredStores().forEach(function(name, index, array) {
+  treasure.getRegisteredStores().forEach(function(name) {
     describe(util.format("%s objects", name), function() {
       var obj = null;
       before(function() {
@@ -88,11 +109,9 @@ describe("treasure.js", function() {
           });
         });
         it("should return an error for a non-existant object", function(done) {
-          obj.readObject("fake_object", function(err, res) {
-            expect(err).to.be.ok();
-            expect(res).to.not.be.ok();
-            done();
-          });
+          var res = obj.readObject("fake_object");
+          res.on("result", function(res) { expect(res).to.not.be.ok(); });
+          res.on("error", function (err) { done(); });
         });
       });
       it("should have a writeObject() method", function() {
@@ -125,20 +144,20 @@ describe("treasure.js", function() {
         });
         it("should fail to write an object without an id", function(done) {
           var o = { foobar: "This is a test" };
-          obj.writeObject(o, function(err, res) {
-            expect(err).to.be.ok();
-            expect(res).to.not.be.ok();
-            done();
-          });
+          var result = obj.writeObject(o);
+          result.on("result", function(res) { expect(res).to.not.be.ok(); done(); });
+          result.on("error", function(err) { done(); });
         });
         after(function(done) {
-          fs.unlink("./test/data/write_test.json", function(err) {
-            expect(err).to.not.be.ok();
+          var cleanup = cleanupActions[name];
+          if (cleanup != undefined) {
+            cleanup(obj, done);
+          } else {
             done();
-          });
+          }
         });
       });
     });
-  });
+  }, null);
 });
 
