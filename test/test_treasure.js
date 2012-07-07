@@ -7,7 +7,7 @@ var treasure = require("../");
 
 var storeArgs = {
   "DiskStore": ["./test/data"],
-  "MemoryStore": []
+  "MemoryStore": [{ "real_object": { "foo": 1, "bar": "Hello, World!" }}]
 };
 
 var cleanupActions = {
@@ -88,16 +88,6 @@ describe("treasure.js", function() {
         expect(obj.readObject).to.be.a("function");
       });
       describe("#readObject()", function() {
-        before(function(done) {
-          var testCount = 2;
-          function testDone(expected, actual) {
-            expect(actual).to.be(expected);
-            testCount--;
-            if (testCount == 0) done();
-          }
-          fs.exists("./test/data/real_object.json", testDone.bind(null, true));
-          fs.exists("./test/data/fake_object.json", testDone.bind(null, false));
-        });
         it("should return an object for id that exists", function(done) {
           obj.readObject("real_object", function(err, res) {
             expect(err).to.not.be.ok();
@@ -118,7 +108,7 @@ describe("treasure.js", function() {
         expect(obj.writeObject).to.be.a("function");
       });
       describe("#writeObject()", function() {
-        it("should write an object to disk", function(done) {
+        it("should write an object", function(done) {
           var o = { foobar: "This is a test" };
           Object.defineProperty(o, "_id", { enumerable: false, value: "write_test" });
           obj.writeObject(o, function(err, res) {
@@ -130,7 +120,7 @@ describe("treasure.js", function() {
             });
           });
         });
-        it("should write a namespaced object to disk in the correct location", function(done) {
+        it("should write a namespaced object in the correct location", function(done) {
           var ns = { foo: "bar" };
           Object.defineProperty(ns, "_id", { enumerable: false, value:"ns1::ns_test" });
           obj.writeObject(ns, function(err, res) {
