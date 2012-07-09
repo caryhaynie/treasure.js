@@ -114,10 +114,7 @@ describe("treasure.js", function() {
           obj.writeObject(o, function(err, res) {
             expect(err).to.not.be.ok();
             expect(res).to.be.ok();
-            fs.exists("./test/data/write_test.json", function(exists) {
-              expect(exists).to.be.ok();
-              done();
-            });
+            done();
           });
         });
         it("should write a namespaced object in the correct location", function(done) {
@@ -126,10 +123,7 @@ describe("treasure.js", function() {
           obj.writeObject(ns, function(err, res) {
             expect(err).to.not.be.ok();
             expect(res).to.be.ok();
-            fs.exists("./test/data/ns1/ns_test.json", function(exists) {
-              expect(exists).to.be.ok();
-              done();
-            });
+            done();
           });
         });
         it("should fail to write an object without an id", function(done) {
