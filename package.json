@@ -15,7 +15,7 @@
   },
   "dependencies":
   {
-    "flow.js": "latest",
+    "flowtools.js": "latest",
     "mkdirp": "latest"
   },
   "devDependencies":
